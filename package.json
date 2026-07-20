@@ -11,8 +11,13 @@
     "netlify:dev": "netlify dev"
   },
   "dependencies": {
+    "autoprefixer": "^10.5.4",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.25.0",
+    "postcss": "^8.5.20",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
