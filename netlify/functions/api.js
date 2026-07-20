@@ -1,19 +1,12 @@
-import { getStore } from '@netlify/blobs';
+const { getStore } = require('@netlify/blobs');
 
-export default async (req, context) => {
-  const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/\.netlify\/functions\/api/, '');
-
-  // Initialize stores with site context if available
-  const siteID = process.env.SITE_ID;
-  const token = process.env.NETLIFY_API_TOKEN;
+exports.handler = async (event, context) => {
+  const path = event.path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api/, '');
   
-  const options = siteID && token ? { siteID, token } : {};
-
-  const visitorsStore = getStore({ name: 'visitors', ...options });
-  const votesStore = getStore({ name: 'votes', ...options });
-  const rsvpStore = getStore({ name: 'rsvp', ...options });
-  const namesStore = getStore({ name: 'names', ...options });
+  const visitorsStore = getStore('visitors');
+  const votesStore = getStore('votes');
+  const rsvpStore = getStore('rsvp');
+  const namesStore = getStore('names');
 
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -22,38 +15,36 @@ export default async (req, context) => {
     'Content-Type': 'application/json'
   };
 
-  if (req.method === 'OPTIONS') {
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   }
 
   try {
-    // 1. Get Unique Visitor Count & Handle Unique Upsert
-    if (path === '/getVisitorCount' && req.method === 'GET') {
+    // 1. Get Visitor Count & Create/Update Visitor
+    if (path === '/getVisitorCount' && event.httpMethod === 'GET') {
       const allVisitors = await visitorsStore.list();
-      return new Response(JSON.stringify({ count: 100 + allVisitors.blobs.length }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ count: 100 + allVisitors.blobs.length }) };
     }
 
-    if (path === '/createVisitor' && req.method === 'POST') {
-      const body = await req.json();
-      const visitorToken = body.visitor_token;
+    if (path === '/createVisitor' && event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
+      const token = body.visitor_token;
 
-      if (!visitorToken) {
-        return new Response(JSON.stringify({ error: 'Visitor token is required' }), { status: 400, headers });
+      if (!token) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token missing' }) };
       }
 
       let existingVisitor = null;
       try {
-        existingVisitor = await visitorsStore.getJSON(visitorToken);
-      } catch (e) {
-        // Not found, treat as new
-      }
+        existingVisitor = await visitorsStore.getJSON(token);
+      } catch (e) {}
 
       let guestNumber;
       const now = new Date().toISOString();
 
       if (existingVisitor) {
         guestNumber = existingVisitor.guestNumber;
-        await visitorsStore.setJSON(visitorToken, {
+        await visitorsStore.setJSON(token, {
           ...existingVisitor,
           visitor_name: body.visitor_name || existingVisitor.visitor_name,
           mobile_number: body.mobile_number || existingVisitor.mobile_number,
@@ -64,7 +55,7 @@ export default async (req, context) => {
         const allVisitors = await visitorsStore.list();
         guestNumber = 101 + allVisitors.blobs.length;
 
-        await visitorsStore.setJSON(visitorToken, {
+        await visitorsStore.setJSON(token, {
           ...body,
           guestNumber,
           createdAt: now,
@@ -72,30 +63,30 @@ export default async (req, context) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, guestNumber }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, guestNumber }) };
     }
 
     // 2. RSVP
-    if (path === '/rsvp' && req.method === 'POST') {
-      const body = await req.json();
+    if (path === '/rsvp' && event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
       if (!body.visitor_token) {
-        return new Response(JSON.stringify({ error: 'Token missing' }), { status: 400, headers });
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token missing' }) };
       }
       await rsvpStore.setJSON(body.visitor_token, { ...body, updatedAt: new Date().toISOString() });
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
     // 3. Gender Vote & Results
-    if (path === '/gender' && req.method === 'POST') {
-      const body = await req.json();
+    if (path === '/gender' && event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
       if (!body.visitor_token) {
-        return new Response(JSON.stringify({ error: 'Token missing' }), { status: 400, headers });
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token missing' }) };
       }
       await votesStore.setJSON(`gender_${body.visitor_token}`, body.selection);
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
-    if (path === '/gender/results' && req.method === 'GET') {
+    if (path === '/gender/results' && event.httpMethod === 'GET') {
       const { blobs } = await votesStore.list({ prefix: 'gender_' });
       let boy = 0, girl = 0;
       for (const b of blobs) {
@@ -103,20 +94,20 @@ export default async (req, context) => {
         if (val === 'boy') boy++;
         if (val === 'girl') girl++;
       }
-      return new Response(JSON.stringify({ boy, girl, total: boy + girl }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ boy, girl, total: boy + girl }) };
     }
 
     // 4. Arrival Month Vote & Results
-    if (path === '/arrival' && req.method === 'POST') {
-      const body = await req.json();
+    if (path === '/arrival' && event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
       if (!body.visitor_token) {
-        return new Response(JSON.stringify({ error: 'Token missing' }), { status: 400, headers });
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token missing' }) };
       }
       await votesStore.setJSON(`arrival_${body.visitor_token}`, body.selected_month);
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
-    if (path === '/arrival/results' && req.method === 'GET') {
+    if (path === '/arrival/results' && event.httpMethod === 'GET') {
       const { blobs } = await votesStore.list({ prefix: 'arrival_' });
       const counts = { August: 0, September: 0, October: 0 };
       for (const b of blobs) {
@@ -124,23 +115,19 @@ export default async (req, context) => {
         if (counts[val] !== undefined) counts[val]++;
       }
       const total = counts.August + counts.September + counts.October;
-      return new Response(JSON.stringify({ ...counts, total }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ ...counts, total }) };
     }
 
     // 5. Baby Name Suggestions
-    if (path === '/babyname' && req.method === 'POST') {
-      const body = await req.json();
+    if (path === '/babyname' && event.httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
       await namesStore.setJSON(`name_${Date.now()}_${Math.random()}`, body);
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
-    return new Response(JSON.stringify({ error: 'Endpoint not found' }), { status: 404, headers });
+    return { statusCode: 404, headers, body: JSON.stringify({ error: 'Endpoint not found', path }) };
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
-};
-
-export const config = {
-  path: "/api/*"
 };
