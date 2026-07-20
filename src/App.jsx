@@ -270,7 +270,7 @@ export default function App() {
       welcomeTitle: "Please Enter Your Details",
       nameInput: "Your Name",
       phoneInput: "Phone Number (10 digits)",
-      beginBtn: "Scroll Down"
+      beginBtn: "Let's Begin"
     },
     TA: {
       sub: "வளைகாப்பு விழா அழைப்பு",
@@ -307,7 +307,7 @@ export default function App() {
       welcomeTitle: "உங்கள் விவரங்களை உள்ளிடவும்",
       nameInput: "உங்கள் பெயர்",
       phoneInput: "தொலைபேசி எண் (10 இலக்கங்கள்)",
-      beginBtn: "Scroll Down"
+      beginBtn: "Let's Begin"
     }
   }[language];
 
