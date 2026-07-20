@@ -2,9 +2,8 @@ import { getStore } from '@netlify/blobs';
 
 export default async (req, context) => {
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/\.netlify\/functions\/api/, ''); // handles Netlify routing
+  const path = url.pathname.replace(/^\/\.netlify\/functions\/api/, '');
 
-  // Connect to Netlify Blobs stores
   const visitorsStore = getStore('visitors');
   const votesStore = getStore('votes');
   const rsvpStore = getStore('rsvp');
@@ -22,7 +21,7 @@ export default async (req, context) => {
   }
 
   try {
-    // 1. Get Visitor Count & Create Visitor
+    // 1. Get Unique Visitor Count & Handle Unique Upsert with Last Visit Update
     if (path === '/getVisitorCount' && req.method === 'GET') {
       const allVisitors = await visitorsStore.list();
       return new Response(JSON.stringify({ count: 100 + allVisitors.blobs.length }), { status: 200, headers });
@@ -30,14 +29,45 @@ export default async (req, context) => {
 
     if (path === '/createVisitor' && req.method === 'POST') {
       const body = await req.json();
-      const allVisitors = await visitorsStore.list();
-      const guestNumber = 101 + allVisitors.blobs.length;
-      
-      await visitorsStore.setJSON(body.visitor_token, {
-        ...body,
-        guestNumber,
-        createdAt: new Date().toISOString()
-      });
+      const token = body.visitor_token;
+
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Visitor token is required' }), { status: 400, headers });
+      }
+
+      // Check if visitor already exists
+      let existingVisitor = null;
+      try {
+        existingVisitor = await visitorsStore.getJSON(token);
+      } catch (e) {
+        // Not found or error reading, treat as new
+      }
+
+      let guestNumber;
+      const now = new Date().toISOString();
+
+      if (existingVisitor) {
+        // Visitor already exists: do not increment count, update Last Visit instead
+        guestNumber = existingVisitor.guestNumber;
+        await visitorsStore.setJSON(token, {
+          ...existingVisitor,
+          visitor_name: body.visitor_name || existingVisitor.visitor_name,
+          mobile_number: body.mobile_number || existingVisitor.mobile_number,
+          language: body.language || existingVisitor.language,
+          lastVisit: now
+        });
+      } else {
+        // Brand new unique visitor
+        const allVisitors = await visitorsStore.list();
+        guestNumber = 101 + allVisitors.blobs.length;
+
+        await visitorsStore.setJSON(token, {
+          ...body,
+          guestNumber,
+          createdAt: now,
+          lastVisit: now
+        });
+      }
 
       return new Response(JSON.stringify({ success: true, guestNumber }), { status: 200, headers });
     }
