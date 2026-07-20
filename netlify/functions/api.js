@@ -1,34 +1,40 @@
 import { getStore } from '@netlify/blobs';
 
 export default async (req, context) => {
-  const url = new URL(req.url);
-  // Match path whether called via direct function URL or rewrite
-  let path = url.pathname.replace(/^\/\.netlify\/functions\/api/, '');
-  if (path.startsWith('/api')) {
-    path = path.replace(/^\/api/, '');
-  }
-
-  const visitorsStore = getStore('visitors');
-  const votesStore = getStore('votes');
-  const rsvpStore = getStore('rsvp');
-  const namesStore = getStore('names');
-
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  if (req.method === 'OPTIONS') {
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
-  }
-
   try {
+    const url = new URL(req.url);
+    let path = url.pathname.replace(/^\/\.netlify\/functions\/api/, '');
+    if (path.startsWith('/api')) {
+      path = path.replace(/^\/api/, '');
+    }
+
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Content-Type': 'application/json'
+    };
+
+    if (req.method === 'OPTIONS') {
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+    }
+
+    // Safely get stores with environment context fallback
+    const visitorsStore = getStore('visitors');
+    const votesStore = getStore('votes');
+    const rsvpStore = getStore('rsvp');
+    const namesStore = getStore('names');
+
     // 1. Get Visitor Count & Create/Update Unique Visitor
     if (path === '/getVisitorCount' && req.method === 'GET') {
-      const allVisitors = await visitorsStore.list();
-      return new Response(JSON.stringify({ count: 100 + allVisitors.blobs.length }), { status: 200, headers });
+      let count = 100;
+      try {
+        const allVisitors = await visitorsStore.list();
+        count = 100 + (allVisitors?.blobs?.length || 0);
+      } catch (e) {
+        // Fallback if store is empty or initializing
+      }
+      return new Response(JSON.stringify({ count }), { status: 200, headers });
     }
 
     if (path === '/createVisitor' && req.method === 'POST') {
@@ -44,11 +50,11 @@ export default async (req, context) => {
         existingVisitor = await visitorsStore.getJSON(token);
       } catch (e) {}
 
-      let guestNumber;
+      let guestNumber = 101;
       const now = new Date().toISOString();
 
       if (existingVisitor) {
-        guestNumber = existingVisitor.guestNumber;
+        guestNumber = existingVisitor.guestNumber || 101;
         await visitorsStore.setJSON(token, {
           ...existingVisitor,
           visitor_name: body.visitor_name || existingVisitor.visitor_name,
@@ -57,8 +63,11 @@ export default async (req, context) => {
           lastVisit: now
         });
       } else {
-        const allVisitors = await visitorsStore.list();
-        guestNumber = 101 + allVisitors.blobs.length;
+        let allVisitors = { blobs: [] };
+        try {
+          allVisitors = await visitorsStore.list();
+        } catch (e) {}
+        guestNumber = 101 + (allVisitors?.blobs?.length || 0);
 
         await visitorsStore.setJSON(token, {
           ...body,
@@ -92,13 +101,15 @@ export default async (req, context) => {
     }
 
     if (path === '/gender/results' && req.method === 'GET') {
-      const { blobs } = await votesStore.list({ prefix: 'gender_' });
       let boy = 0, girl = 0;
-      for (const b of blobs) {
-        const val = await votesStore.get(b.key);
-        if (val === 'boy') boy++;
-        if (val === 'girl') girl++;
-      }
+      try {
+        const { blobs } = await votesStore.list({ prefix: 'gender_' });
+        for (const b of (blobs || [])) {
+          const val = await votesStore.get(b.key);
+          if (val === 'boy') boy++;
+          if (val === 'girl') girl++;
+        }
+      } catch (e) {}
       return new Response(JSON.stringify({ boy, girl, total: boy + girl }), { status: 200, headers });
     }
 
@@ -113,12 +124,14 @@ export default async (req, context) => {
     }
 
     if (path === '/arrival/results' && req.method === 'GET') {
-      const { blobs } = await votesStore.list({ prefix: 'arrival_' });
       const counts = { August: 0, September: 0, October: 0 };
-      for (const b of blobs) {
-        const val = await votesStore.get(b.key);
-        if (counts[val] !== undefined) counts[val]++;
-      }
+      try {
+        const { blobs } = await votesStore.list({ prefix: 'arrival_' });
+        for (const b of (blobs || [])) {
+          const val = await votesStore.get(b.key);
+          if (counts[val] !== undefined) counts[val]++;
+        }
+      } catch (e) {}
       const total = counts.August + counts.September + counts.October;
       return new Response(JSON.stringify({ ...counts, total }), { status: 200, headers });
     }
