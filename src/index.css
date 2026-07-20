@@ -2,12 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @bg-[#FDF9F3] text-neutral-800 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom smooth scrollbar & typography adjustments */
 html {
   scroll-behavior: smooth;
 }
 
-body {
-  background-color: #23172B;
-  color: #2C2C2C;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FDF9F3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E6D5B8;
+  border-radius: 3px;
 }
