@@ -8,11 +8,18 @@
   port = 8888
   targetPort = 5173
 
+# Explicitly map individual endpoints to your files in netlify/functions/
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/api/gender"
+  to = "/.netlify/functions/gender"
   status = 200
 
+[[redirects]]
+  from = "/api/arrival"
+  to = "/.netlify/functions/arrival"
+  status = 200
+
+# Catch-all rule for your single-page app (must remain at the bottom)
 [[redirects]]
   from = "/*"
   to = "/index.html"
