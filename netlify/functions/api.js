@@ -88,7 +88,7 @@ export default async (req, context) => {
       return new Response(JSON.stringify({ success: true }), { status: 200, headers });
     }
 
-    // 4. Gender Vote (POST & GET handler matching your frontend fetch calls)
+    // 4. Gender Vote
     if (path === '/gender') {
       if (req.method === 'POST') {
         const body = await req.json();
@@ -96,36 +96,22 @@ export default async (req, context) => {
           return new Response(JSON.stringify({ error: 'Token missing' }), { status: 400, headers });
         }
         const selection = body.selection || body.vote;
-        await votesStore.setJSON(`gender_${body.visitor_token}`, selection);
-        
-        // Return latest aggregated counts immediately on POST
-        let boy = 0, girl = 0;
-        try {
-          const { blobs } = await votesStore.list({ prefix: 'gender_' });
-          for (const b of (blobs || [])) {
-            const val = await votesStore.get(b.key);
-            if (val === 'boy') boy++;
-            if (val === 'girl') girl++;
-          }
-        } catch (e) {}
-        return new Response(JSON.stringify({ success: true, votes: { boy, girl } }), { status: 200, headers });
+        await votesStore.set(`gender_${body.visitor_token}`, selection);
       }
 
-      if (req.method === 'GET') {
-        let boy = 0, girl = 0;
-        try {
-          const { blobs } = await votesStore.list({ prefix: 'gender_' });
-          for (const b of (blobs || [])) {
-            const val = await votesStore.get(b.key);
-            if (val === 'boy') boy++;
-            if (val === 'girl') girl++;
-          }
-        } catch (e) {}
-        return new Response(JSON.stringify({ votes: { boy, girl } }), { status: 200, headers });
-      }
+      let boy = 0, girl = 0;
+      try {
+        const { blobs } = await votesStore.list({ prefix: 'gender_' });
+        for (const b of (blobs || [])) {
+          const val = await votesStore.get(b.key);
+          if (val === 'boy') boy++;
+          if (val === 'girl') girl++;
+        }
+      } catch (e) {}
+      return new Response(JSON.stringify({ votes: { boy, girl } }), { status: 200, headers });
     }
 
-    // 5. Arrival Vote (POST & GET handler matching your frontend fetch calls)
+    // 5. Arrival Vote
     if (path === '/arrival') {
       if (req.method === 'POST') {
         const body = await req.json();
@@ -133,31 +119,18 @@ export default async (req, context) => {
           return new Response(JSON.stringify({ error: 'Token missing' }), { status: 400, headers });
         }
         const month = body.selected_month || body.vote;
-        await votesStore.setJSON(`arrival_${body.visitor_token}`, month);
-
-        // Return latest aggregated counts immediately on POST
-        const counts = { August: 0, September: 0, October: 0 };
-        try {
-          const { blobs } = await votesStore.list({ prefix: 'arrival_' });
-          for (const b of (blobs || [])) {
-            const val = await votesStore.get(b.key);
-            if (counts[val] !== undefined) counts[val]++;
-          }
-        } catch (e) {}
-        return new Response(JSON.stringify({ success: true, votes: counts }), { status: 200, headers });
+        await votesStore.set(`arrival_${body.visitor_token}`, month);
       }
 
-      if (req.method === 'GET') {
-        const counts = { August: 0, September: 0, October: 0 };
-        try {
-          const { blobs } = await votesStore.list({ prefix: 'arrival_' });
-          for (const b of (blobs || [])) {
-            const val = await votesStore.get(b.key);
-            if (counts[val] !== undefined) counts[val]++;
-          }
-        } catch (e) {}
-        return new Response(JSON.stringify({ votes: counts }), { status: 200, headers });
-      }
+      const counts = { August: 0, September: 0, October: 0 };
+      try {
+        const { blobs } = await votesStore.list({ prefix: 'arrival_' });
+        for (const b of (blobs || [])) {
+          const val = await votesStore.get(b.key);
+          if (counts[val] !== undefined) counts[val]++;
+        }
+      } catch (e) {}
+      return new Response(JSON.stringify({ votes: counts }), { status: 200, headers });
     }
 
     // 6. Baby Name Suggestions
