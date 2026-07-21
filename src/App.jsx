@@ -44,8 +44,28 @@ export default function App() {
       .then(data => { if (data.count) setVisitorNumber(data.count); })
       .catch(() => {});
 
-    fetch('/api/gender/results').then(res => res.json()).then(data => { if(data && data.total !== undefined) setGenderResults(data); }).catch(()=>{});
-    fetch('/api/arrival/results').then(res => res.json()).then(data => { if(data && data.total !== undefined) setArrivalResults(data); }).catch(()=>{});
+    // Fetch initial gender votes
+    fetch('/api/gender')
+      .then(res => res.json())
+      .then(data => {
+        const v = data.votes || data;
+        const b = v.boy || 0;
+        const g = v.girl || 0;
+        setGenderResults({ boy: b, girl: g, total: b + g });
+      })
+      .catch(() => {});
+
+    // Fetch initial arrival votes
+    fetch('/api/arrival')
+      .then(res => res.json())
+      .then(data => {
+        const v = data.votes || data;
+        const aug = v.August || 0;
+        const sep = v.September || 0;
+        const oct = v.October || 0;
+        setArrivalResults({ August: aug, September: sep, October: oct, total: aug + sep + oct });
+      })
+      .catch(() => {});
 
     const eventDate = new Date("August 2, 2026 17:30:00").getTime();
     const timer = setInterval(() => {
@@ -150,15 +170,19 @@ export default function App() {
       const res = await fetch('/api/gender', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitor_token: visitorToken, selection })
+        body: JSON.stringify({ visitor_token: visitorToken, selection, vote: selection })
       });
       const data = await res.json();
       if (res.ok) {
         setGenderVote(selection);
+        const actualVotes = data.votes || data;
+        const boyCount = actualVotes.boy || 0;
+        const girlCount = actualVotes.girl || 0;
+        
         setGenderResults({
-          boy: data.boy || 0,
-          girl: data.girl || 0,
-          total: data.total || ((data.boy || 0) + (data.girl || 0))
+          boy: boyCount,
+          girl: girlCount,
+          total: boyCount + girlCount
         });
         showToast("Gender prediction recorded!");
       } else {
@@ -177,16 +201,21 @@ export default function App() {
       const res = await fetch('/api/arrival', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitor_token: visitorToken, selected_month })
+        body: JSON.stringify({ visitor_token: visitorToken, selected_month, vote: selected_month })
       });
       const data = await res.json();
       if (res.ok) {
         setArrivalVote(selected_month);
+        const actualVotes = data.votes || data;
+        const aug = actualVotes.August || 0;
+        const sep = actualVotes.September || 0;
+        const oct = actualVotes.October || 0;
+
         setArrivalResults({
-          August: data.August !== undefined ? data.August : (arrivalResults.August || 0),
-          September: data.September !== undefined ? data.September : (arrivalResults.September || 0),
-          October: data.October !== undefined ? data.October : (arrivalResults.October || 0),
-          total: data.total !== undefined ? data.total : ((data.August || 0) + (data.September || 0) + (data.October || 0))
+          August: aug,
+          September: sep,
+          October: oct,
+          total: aug + sep + oct
         });
         showToast("Arrival month recorded!");
       } else {
