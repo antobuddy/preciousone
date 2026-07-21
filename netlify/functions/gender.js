@@ -6,7 +6,7 @@ export default async (req, context) => {
 
     if (req.method === "GET") {
       const votes = (await store.get("votes", { type: "json" })) || { boy: 0, girl: 0 };
-      return new Response(JSON.stringify(votes), {
+      return new Response(JSON.stringify({ success: true, votes }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -20,14 +20,11 @@ export default async (req, context) => {
         body = {};
       }
 
-      const vote = String(body.vote || body.gender || body.selection || "boy").trim().toLowerCase();
+      const vote = String(body.vote || body.selection || "boy").trim().toLowerCase();
+      const targetKey = vote === "girl" ? "girl" : "boy";
 
-      const votes = (await store.get("votes", { type: "json" })) || { boy: 0, girl: 0 };
-      if (votes[vote] !== undefined) {
-        votes[vote] += 1;
-      } else {
-        votes.boy = (votes.boy || 0) + 1;
-      }
+      let votes = (await store.get("votes", { type: "json" })) || { boy: 0, girl: 0 };
+      votes[targetKey] = (votes[targetKey] || 0) + 1;
       
       await store.setJSON("votes", votes);
 
@@ -42,7 +39,7 @@ export default async (req, context) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+    return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
