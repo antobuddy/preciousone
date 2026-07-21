@@ -152,16 +152,16 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ visitor_token: visitorToken, selection })
       });
+      const data = await res.json();
       if (res.ok) {
         setGenderVote(selection);
-        setGenderResults(prev => {
-          const updatedBoy = selection === 'boy' ? (prev.boy || 0) + 1 : (prev.boy || 0);
-          const updatedGirl = selection === 'girl' ? (prev.girl || 0) + 1 : (prev.girl || 0);
-          return { boy: updatedBoy, girl: updatedGirl, total: updatedBoy + updatedGirl };
+        setGenderResults({
+          boy: data.boy || 0,
+          girl: data.girl || 0,
+          total: data.total || ((data.boy || 0) + (data.girl || 0))
         });
         showToast("Gender prediction recorded!");
       } else {
-        const data = await res.json();
         showToast(data.error || "Unable to save.");
       }
     } catch {
@@ -179,17 +179,17 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ visitor_token: visitorToken, selected_month })
       });
+      const data = await res.json();
       if (res.ok) {
         setArrivalVote(selected_month);
-        setArrivalResults(prev => {
-          const aug = (prev.August || 0) + (selected_month === 'August' ? 1 : 0);
-          const sep = (prev.September || 0) + (selected_month === 'September' ? 1 : 0);
-          const oct = (prev.October || 0) + (selected_month === 'October' ? 1 : 0);
-          return { August: aug, September: sep, October: oct, total: aug + sep + oct };
+        setArrivalResults({
+          August: data.August !== undefined ? data.August : (arrivalResults.August || 0),
+          September: data.September !== undefined ? data.September : (arrivalResults.September || 0),
+          October: data.October !== undefined ? data.October : (arrivalResults.October || 0),
+          total: data.total !== undefined ? data.total : ((data.August || 0) + (data.September || 0) + (data.October || 0))
         });
         showToast("Arrival month recorded!");
       } else {
-        const data = await res.json();
         showToast(data.error || "Unable to save.");
       }
     } catch {
@@ -232,7 +232,7 @@ export default function App() {
   const girlPercent = totalGenderVotes > 0 ? Math.round(((genderResults.girl || 0) / totalGenderVotes) * 100) : 0;
 
   const arrivalMonths = ['August', 'September', 'October'];
-  const totalArrivalVotes = arrivalMonths.reduce((acc, m) => acc + (arrivalResults[m] || 0), 0);
+  const totalArrivalVotes = (arrivalResults.August || 0) + (arrivalResults.September || 0) + (arrivalResults.October || 0);
 
   const t = {
     EN: {
@@ -372,7 +372,7 @@ export default function App() {
                 <div className="flex items-center gap-3 text-lg tracking-wider mb-8 text-[#4A1525]">
                   <span>Anto</span> <Heart size={14} className="fill-[#4A1525]" /> <span>Keerthi</span>
                 </div>
-                <button onClick={scrollToContent} className="bg-[#4A1525] text-white border border-[#E6D5B8]/40 px-8 py-3.5 rounded-full text-sm tracking-wider flex items-center gap-2 shadow-xl hover:brightness-110 transition-all">
+                <button onClick={scrollToContent} className="bg-[#4A1525] text-white border border-[#E6D5B8]/40 px-8 py-3.5 rounded-full text-sm tracking-wider flex items-center gap-2 shadow-xl hover:brightness-115 transition-all">
                   {t.beginBtn} <ChevronRight size={16} />
                 </button>
               </motion.div>
